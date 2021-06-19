@@ -58,8 +58,6 @@ namespace TwitterNumberBot
             _discordWrapper = new DiscordWrapper(Configuration["DiscordBotToken"], Configuration["DiscordGuildId"],
                 Configuration["DiscordRoomId"]);
 
-            _twitterWrapper.LastSampledTweetCount = 0;
-
             var twitterTask = await Task.Factory.StartNew(async () =>
             {
                 while (_running)

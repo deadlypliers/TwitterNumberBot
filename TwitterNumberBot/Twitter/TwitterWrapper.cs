@@ -17,7 +17,6 @@ namespace TwitterNumberBot.Twitter
         public long TweetsReceived { get; private set; }
         public long LastSampledTweetCount { get; set; }
         public long TweetsWithValidNumbers { get; private set; }
-        public long Reconnects { get; private set; }
         public ConcurrentQueue<TweetPackage> TweetQueue { get; }
         public Queue<LogTweet> BadTweetQueue { get; }
         
@@ -36,8 +35,7 @@ namespace TwitterNumberBot.Twitter
         {
             TweetsReceived = 0;
             TweetsWithValidNumbers = 0;
-
-            Reconnects = 0;
+            LastSampledTweetCount = 0;
 
             TweetQueue = new ConcurrentQueue<TweetPackage>();
             BadTweetQueue = new Queue<LogTweet>();
@@ -46,6 +44,10 @@ namespace TwitterNumberBot.Twitter
 
             TweetLogPath += $"D:\\TweetLogs\\{DateTime.Now.ToShortDateString().Replace("/", string.Empty).Replace("\\", string.Empty)}.csv";
         }
+
+        #endregion
+
+        #region Public Methods
 
         public async Task ConfigureRules()
         {
@@ -77,13 +79,8 @@ namespace TwitterNumberBot.Twitter
             _filteredStream.TweetReceived += GotTweet;
         }
 
-        #endregion
-
-        #region Public Methods
-
         public async Task SampleStream()
         {
-            Reconnects++;
             await _filteredStream.StartAsync();
         }
 

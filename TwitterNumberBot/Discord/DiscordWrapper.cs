@@ -16,6 +16,8 @@ namespace TwitterNumberBot.Discord
         private readonly ulong _channelId;
         private bool _connected;
 
+        #region Constructor
+
         public DiscordWrapper(string token, string guildId, string channelId)
         {
             this._token = token;
@@ -24,6 +26,10 @@ namespace TwitterNumberBot.Discord
 
             _discordClient = new DiscordSocketClient();
         }
+
+        #endregion
+
+        #region Public Methods
 
         public async Task Login()
         {
@@ -38,18 +44,6 @@ namespace TwitterNumberBot.Discord
         {
             await _discordClient.StopAsync();
             await _discordClient.LogoutAsync();
-        }
-
-        private Task DiscordDisconnected(Exception arg)
-        {
-            _connected = false;
-            return Task.CompletedTask;
-        }
-
-        private Task DiscordConnected()
-        {
-            _connected = true;
-            return Task.CompletedTask;
         }
 
         public async Task WritePost(TweetPackage tweetDetails)
@@ -112,5 +106,23 @@ namespace TwitterNumberBot.Discord
 
             await channel.SendMessageAsync(null, false, embed, null, AllowedMentions.None);
         }
+
+        #endregion
+
+        #region Private Methods
+
+        private Task DiscordDisconnected(Exception arg)
+        {
+            _connected = false;
+            return Task.CompletedTask;
+        }
+
+        private Task DiscordConnected()
+        {
+            _connected = true;
+            return Task.CompletedTask;
+        }
+
+        #endregion
     }
 }
