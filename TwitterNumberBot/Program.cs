@@ -21,6 +21,7 @@ namespace TwitterNumberBot
 
         private static DateTime _twitterLastUpdate;
         private static DateTime _discordLastUpdate;
+        private static DateTime _sampleStart;
 
         private static AutoResetEvent _closing;
 
@@ -72,6 +73,7 @@ namespace TwitterNumberBot
 
             await _twitterWrapper.ConfigureRules();
             _twitterWrapper.ConfigureStream();
+            _sampleStart = DateTime.Now;
 
             _discordLastUpdate = DateTime.Now;
             _twitterLastUpdate = DateTime.Now;
@@ -176,8 +178,13 @@ namespace TwitterNumberBot
 
         private static async Task CheckQueueAndWriteToDiscord()
         {
-            Console.WriteLine(
-                $"{DateTime.Now:s} - Tweets received: {_twitterWrapper.TweetsReceived:###,###,##0} / With Numbers: {_twitterWrapper.TweetsWithValidNumbers:###,###,##0} ({(double)_twitterWrapper.TweetsWithValidNumbers / (double)(Math.Max(_twitterWrapper.TweetsReceived, 1)):P})");
+            var tweetsPerMinute = (double)_twitterWrapper.TweetsReceived / (DateTime.Now - _sampleStart).TotalMinutes;
+            var tweetsPerMonth = tweetsPerMinute * 60.0 * 14.0 * 30.0;
+
+            Console.WriteLine($"[{DateTime.Now:s}]");
+            Console.WriteLine($"\tTweets received: {_twitterWrapper.TweetsReceived:###,###,##0}");
+            Console.WriteLine($"\tWith Numbers: {_twitterWrapper.TweetsWithValidNumbers:###,###,##0} ({(double)_twitterWrapper.TweetsWithValidNumbers / (double)(Math.Max(_twitterWrapper.TweetsReceived, 1)):P})");
+            Console.WriteLine($"\t{tweetsPerMinute:N} tweets/min ({tweetsPerMonth:N} per month)");
 
             if (_twitterWrapper.TweetQueue.Count == 0)
                 return;
