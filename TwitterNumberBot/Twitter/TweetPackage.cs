@@ -1,8 +1,7 @@
-﻿using System.Collections.Generic;
-using System.Linq;
+﻿using System.Linq;
 using Tweetinvi.Models.V2;
 
-namespace TwitterNumberBot
+namespace TwitterNumberBot.Twitter
 {
     public class TweetPackage
     {

@@ -4,8 +4,9 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using TwitterNumberBot.Twitter;
 
-namespace TwitterNumberBot
+namespace TwitterNumberBot.Discord
 {
     public class DiscordWrapper
     {

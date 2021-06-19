@@ -10,7 +10,7 @@ using Tweetinvi.Events.V2;
 using Tweetinvi.Parameters.V2;
 using Tweetinvi.Streaming.V2;
 
-namespace TwitterNumberBot
+namespace TwitterNumberBot.Twitter
 {
     public class TwitterWrapper
     {
@@ -44,7 +44,7 @@ namespace TwitterNumberBot
 
             _tweetClient = new TwitterClient(apiKey, secretKey, bearerToken);
 
-            TweetLogPath += $"D:\\TweetLogs\\{DateTime.Now.ToShortDateString().Replace(" / ", string.Empty).Replace("\\", string.Empty)}.csv";
+            TweetLogPath += $"D:\\TweetLogs\\{DateTime.Now.ToShortDateString().Replace("/", string.Empty).Replace("\\", string.Empty)}.csv";
         }
 
         public async Task ConfigureRules()

@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace TwitterNumberBot
+namespace TwitterNumberBot.Twitter
 {
     public class LogTweet
     {

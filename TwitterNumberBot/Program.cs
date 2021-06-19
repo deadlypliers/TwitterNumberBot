@@ -7,6 +7,8 @@ using System.Globalization;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using TwitterNumberBot.Discord;
+using TwitterNumberBot.Twitter;
 
 namespace TwitterNumberBot
 {
@@ -25,7 +27,7 @@ namespace TwitterNumberBot
         private static bool _running;
         private static bool _reset;
 
-        static async Task Main(string[] args)
+        private static async Task Main(string[] args)
         {
             _closing = new AutoResetEvent(false);
             Configuration = BuildConfig();
@@ -62,7 +64,8 @@ namespace TwitterNumberBot
             {
                 while (_running)
                 {
-                    //await twitterWrapper.ConfigureRules();
+                    await _twitterWrapper.ConfigureRules();
+                    Thread.Sleep(2000);
                     _twitterWrapper.ConfigureStream();
                     Console.WriteLine("Starting tweet sampling...");
                     await CheckTwitter();
