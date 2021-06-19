@@ -177,7 +177,7 @@ namespace TwitterNumberBot
         private static async Task CheckQueueAndWriteToDiscord()
         {
             Console.WriteLine(
-                $"{DateTime.Now:s} - Tweets received: {_twitterWrapper.TweetsReceived} / With Numbers: {_twitterWrapper.TweetsWithValidNumbers} ({_twitterWrapper.TweetsWithValidNumbers / (_twitterWrapper.TweetsReceived == 0 ? 1 : _twitterWrapper.TweetsReceived) * 100:P})");
+                $"{DateTime.Now:s} - Tweets received: {_twitterWrapper.TweetsReceived:###,###,##0} / With Numbers: {_twitterWrapper.TweetsWithValidNumbers:###,###,##0} ({(double)_twitterWrapper.TweetsWithValidNumbers / (double)(Math.Max(_twitterWrapper.TweetsReceived, 1)):P})");
 
             if (_twitterWrapper.TweetQueue.Count == 0)
                 return;
