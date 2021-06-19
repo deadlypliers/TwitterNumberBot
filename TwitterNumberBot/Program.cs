@@ -27,6 +27,7 @@ namespace TwitterNumberBot
         private static bool _running;
         private static bool _reset;
         private static bool _isSampling;
+        private static bool _badTweetLogging;
 
         private static async Task Main(string[] args)
         {
@@ -35,6 +36,7 @@ namespace TwitterNumberBot
 
             _running = true;
             _reset = true;
+            _badTweetLogging = bool.Parse(Configuration["BadTweetLogging"]);
             
             while (_reset)
             {
@@ -60,7 +62,7 @@ namespace TwitterNumberBot
 
             // Set up client wrappers
             _twitterWrapper = new TwitterWrapper(Configuration["TwitterApiKey"], Configuration["TwitterSecretKey"],
-                    Configuration["TwitterBearerToken"]);
+                    Configuration["TwitterBearerToken"], _badTweetLogging);
 
             _discordWrapper = new DiscordWrapper(Configuration["DiscordBotToken"], Configuration["DiscordGuildId"],
                 Configuration["DiscordRoomId"]);
@@ -96,7 +98,9 @@ namespace TwitterNumberBot
                     if (_isSampling)
                     {
                         await CheckQueueAndWriteToDiscord();
-                        WriteBadTweetLog();
+
+                        if (_badTweetLogging)
+                            WriteBadTweetLog();
 
                         _discordLastUpdate = DateTime.Now;
 

@@ -19,23 +19,25 @@ namespace TwitterNumberBot.Twitter
         public long TweetsWithValidNumbers { get; private set; }
         public ConcurrentQueue<TweetPackage> TweetQueue { get; }
         public Queue<LogTweet> BadTweetQueue { get; }
-        
+        public string TweetLogPath { get; }
+
         private static TwitterClient _tweetClient;
         private static IFilteredStreamV2 _filteredStream;
+        private static bool _badTweetLogging;
         
         private const string RuleBase = "\"phone number\" OR (call (number OR phone OR cell)) OR (give \"a call\" -us) OR (\"call me\" at) OR (\"text me\" at) OR (\"contact me\" at) ";
 
         private const string RuleExclusions =
             "lang:en -has:media -#NiteFlirt -\"RT\" -whatsapp -india -\"+91\" -delhi -\"real estate\" -crisis -(realtor OR realty) -(cashapp OR \"cash app\") -mortgage -property -\"housing market\" -\"new listing\" -(sale property) -#homesforsale -#realestate -is:retweet";
-
-        public string TweetLogPath { get; }
-
+        
         #region Constructor
-        public TwitterWrapper(string apiKey, string secretKey, string bearerToken)
+        public TwitterWrapper(string apiKey, string secretKey, string bearerToken, bool badTweetLogging)
         {
             TweetsReceived = 0;
             TweetsWithValidNumbers = 0;
             LastSampledTweetCount = 0;
+
+            _badTweetLogging = badTweetLogging;
 
             TweetQueue = new ConcurrentQueue<TweetPackage>();
             BadTweetQueue = new Queue<LogTweet>();
@@ -102,7 +104,7 @@ namespace TwitterNumberBot.Twitter
 
             var phoneNumbers = Regex.Match(e.Tweet.Text, @"((^(\+?\1)?)|\b[1]?)\D?\(?([2-9]{1}[0-9]{2})\)?\D?([1-9]{1}[0-9]{2})\D?([0-9]{4})(?![-●\d])");
 
-            if (string.IsNullOrWhiteSpace(phoneNumbers.Value))
+            if (string.IsNullOrWhiteSpace(phoneNumbers.Value) && _badTweetLogging)
             {
                 BadTweetQueue.Enqueue(new LogTweet()
                 {
