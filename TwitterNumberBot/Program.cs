@@ -26,6 +26,7 @@ namespace TwitterNumberBot
 
         private static bool _running;
         private static bool _reset;
+        private static bool _isSampling;
 
         private static async Task Main(string[] args)
         {
@@ -49,24 +50,38 @@ namespace TwitterNumberBot
 
         private static async Task MainLoop()
         {
+            // Stop sampling between midnight and 10 AM to avoid international spam
             if (DateTime.Now.Hour > 0 && DateTime.Now.Hour < 10)
-                Thread.Sleep(DateTime.Parse($"{DateTime.Today.ToShortDateString()}T10:00:00") - DateTime.Now);
+            {
+                var sleepSpan = DateTime.Parse($"{DateTime.Today.ToShortDateString()}T10:00:00") - DateTime.Now;
+                Console.WriteLine($"Sleeping for {sleepSpan.TotalMinutes:F} minutes");
+                Thread.Sleep(sleepSpan);
+            }
 
+            // Set up client wrappers
             _twitterWrapper = new TwitterWrapper(Configuration["TwitterApiKey"], Configuration["TwitterSecretKey"],
                     Configuration["TwitterBearerToken"]);
 
             _discordWrapper = new DiscordWrapper(Configuration["DiscordBotToken"], Configuration["DiscordGuildId"],
                 Configuration["DiscordRoomId"]);
 
+            // Configure twitter client
+            Console.WriteLine("Configuring tweet sampling rules...");
+
+            await _twitterWrapper.ConfigureRules();
+            _twitterWrapper.ConfigureStream();
+
+            _discordLastUpdate = DateTime.Now;
+            _twitterLastUpdate = DateTime.Now;
+
+            // Set up worker threads
             var twitterTask = await Task.Factory.StartNew(async () =>
             {
                 while (_running)
                 {
-                    await _twitterWrapper.ConfigureRules();
-                    Thread.Sleep(2000);
-                    _twitterWrapper.ConfigureStream();
                     Console.WriteLine("Starting tweet sampling...");
-                    await CheckTwitter();
+                    _isSampling = true;
+                    await _twitterWrapper.SampleStream();
                 }
             });
 
@@ -78,15 +93,18 @@ namespace TwitterNumberBot
                 {
                     var checkStart = DateTime.Now;
 
-                    await CheckQueueAndWriteToDiscord();
-                    WriteBadTweetLog();
-
-                    _discordLastUpdate = DateTime.Now;
-
-                    if (_twitterWrapper.TweetsReceived > _twitterWrapper.LastSampledTweetCount)
+                    if (_isSampling)
                     {
-                        _twitterLastUpdate = DateTime.Now;
-                        _twitterWrapper.LastSampledTweetCount = _twitterWrapper.TweetsReceived;
+                        await CheckQueueAndWriteToDiscord();
+                        WriteBadTweetLog();
+
+                        _discordLastUpdate = DateTime.Now;
+
+                        if (_twitterWrapper.TweetsReceived > _twitterWrapper.LastSampledTweetCount)
+                        {
+                            _twitterLastUpdate = DateTime.Now;
+                            _twitterWrapper.LastSampledTweetCount = _twitterWrapper.TweetsReceived;
+                        }
                     }
 
                     Thread.Sleep(5000 - Math.Min((int)(DateTime.Now - checkStart).TotalMilliseconds, 2500));
@@ -125,7 +143,7 @@ namespace TwitterNumberBot
         {
             var fileInfo = new FileInfo(_twitterWrapper.TweetLogPath);
 
-            if (!fileInfo.Directory.Exists)
+            if (fileInfo.Directory != null && !fileInfo.Directory.Exists)
             {
                 fileInfo.Directory.Create();
             }
@@ -147,18 +165,9 @@ namespace TwitterNumberBot
         private static async void OnExit(object sender, ConsoleCancelEventArgs e)
         {
             _running = false;
-            await StopDiscord();
-            _closing.Set();
-        }
-
-        private static async Task CheckTwitter()
-        {
-            await _twitterWrapper.SampleStream();
-        }
-
-        private static async Task StopDiscord()
-        {
+            _twitterWrapper.StopStream();
             await _discordWrapper.Logout();
+            _closing.Set();
         }
 
         private static async Task CheckQueueAndWriteToDiscord()
