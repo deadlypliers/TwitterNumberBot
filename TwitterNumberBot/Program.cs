@@ -125,7 +125,7 @@ namespace TwitterNumberBot
 
                     if (DateTime.Now.Hour >= 10 &&
                         (new TimeSpan(DateTime.Now.Ticks - _discordLastUpdate.Ticks) <= TimeSpan.FromMinutes(1) 
-                            || new TimeSpan(DateTime.Now.Ticks - _twitterLastUpdate.Ticks) <= TimeSpan.FromMinutes(1)))
+                            && new TimeSpan(DateTime.Now.Ticks - _twitterLastUpdate.Ticks) <= TimeSpan.FromMinutes(1)))
                         continue;
 
                     Console.WriteLine("***** Heartbeat error detected or hit Stop Time, restarting *****");
