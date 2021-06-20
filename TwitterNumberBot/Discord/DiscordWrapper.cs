@@ -74,22 +74,29 @@ namespace TwitterNumberBot.Discord
 
             if (tweetDetails.UserRepliedTo != null)
             {
-                var tweetReplyToField = new EmbedFieldBuilder()
+                embedFieldsBuilders.Add(new EmbedFieldBuilder()
                 {
                     IsInline = false,
                     Name = "Tweet Reply To",
                     Value = $"@{tweetDetails.UserRepliedTo.Username}"
-                };
-                embedFieldsBuilders.Add(tweetReplyToField);
+                });
             }
 
-            var tweetNumberField = new EmbedFieldBuilder()
+            embedFieldsBuilders.AddRange(new List<EmbedFieldBuilder>()
             {
-                IsInline = false,
-                Name = "Phone Number",
-                Value = tweetDetails.PhoneNumber
-            };
-            embedFieldsBuilders.Add(tweetNumberField);
+                new EmbedFieldBuilder()
+                {
+                    IsInline = false,
+                    Name = "Rule Triggered",
+                    Value = tweetDetails.RuleName
+                },
+                new EmbedFieldBuilder()
+                {
+                    IsInline = false,
+                    Name = "Phone Number",
+                    Value = tweetDetails.PhoneNumber
+                }
+            });
 
             var embedBuilder = new EmbedBuilder
             {

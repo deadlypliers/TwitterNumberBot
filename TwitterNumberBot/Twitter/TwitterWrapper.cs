@@ -132,7 +132,7 @@ namespace TwitterNumberBot.Twitter
             if (replyToUser != null && replyToUser.Name.IsNullOrEmpty())
                 replyToUser = null;
 
-            TweetQueue.Enqueue(new TweetPackage(e.Tweet, e.Includes, phoneNumber));
+            TweetQueue.Enqueue(new TweetPackage(e.Tweet, e.Includes, phoneNumber, e.MatchingRules.First().Tag));
         }
 
         #endregion
