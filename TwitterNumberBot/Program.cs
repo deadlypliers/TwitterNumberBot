@@ -24,6 +24,7 @@ namespace TwitterNumberBot
         private static DateTime _sampleStart;
 
         private static AutoResetEvent _closing;
+        //private static CancellationTokenSource _cancellationTokenSource;
 
         private static bool _running;
         private static bool _reset;
@@ -38,9 +39,11 @@ namespace TwitterNumberBot
             _running = true;
             _reset = true;
             _badTweetLogging = bool.Parse(Configuration["BadTweetLogging"]);
-            
+            //_cancellationTokenSource = new CancellationTokenSource();
+
             while (_reset)
             {
+                Thread.Sleep(2500);
                 _reset = false;
                 _running = true;
 
@@ -54,10 +57,10 @@ namespace TwitterNumberBot
         private static async Task MainLoop()
         {
             // Stop sampling between midnight and 10 AM to avoid international spam
-            if (DateTime.Now.Hour > 0 && DateTime.Now.Hour < 10)
+            if (DateTime.Now.Hour < 10)
             {
-                var sleepSpan = DateTime.Parse($"{DateTime.Today.ToShortDateString()}T10:00:00") - DateTime.Now;
-                Console.WriteLine($"Sleeping for {sleepSpan.TotalMinutes:F} minutes");
+                var sleepSpan = DateTime.Parse($"{DateTime.Today.ToShortDateString()} 10:00:00") - DateTime.Now;
+                Console.WriteLine($"Sleeping for {sleepSpan:g}...");
                 Thread.Sleep(sleepSpan);
             }
 
@@ -81,41 +84,61 @@ namespace TwitterNumberBot
             // Set up worker threads
             var twitterTask = await Task.Factory.StartNew(async () =>
             {
-                while (_running)
+                try
                 {
+                    //await using (_cancellationTokenSource.Token.Register(Thread.CurrentThread.Abort))
+                    //{
                     Console.WriteLine("Starting tweet sampling...");
                     _isSampling = true;
                     await _twitterWrapper.SampleStream();
+                    //}
+                }
+                catch (ThreadAbortException)
+                {
+                    _isSampling = false;
                 }
             });
+            //}, _cancellationTokenSource.Token);
 
             var discordTask = await Task.Factory.StartNew(async () =>
             {
-                await _discordWrapper.Login();
-
-                while (_running)
+                try
                 {
-                    var checkStart = DateTime.Now;
+                    //await using (_cancellationTokenSource.Token.Register(Thread.CurrentThread.Abort))
+                    //{
+                    await _discordWrapper.Login();
 
-                    if (_isSampling)
+                    while (_running)
                     {
-                        await CheckQueueAndWriteToDiscord();
+                        var checkStart = DateTime.Now;
 
-                        if (_badTweetLogging)
-                            WriteBadTweetLog();
-
-                        _discordLastUpdate = DateTime.Now;
-
-                        if (_twitterWrapper.TweetsReceived > _twitterWrapper.LastSampledTweetCount)
+                        if (_isSampling)
                         {
-                            _twitterLastUpdate = DateTime.Now;
-                            _twitterWrapper.LastSampledTweetCount = _twitterWrapper.TweetsReceived;
+                            await CheckQueueAndWriteToDiscord();
+
+                            if (_badTweetLogging)
+                                WriteBadTweetLog();
+
+                            _discordLastUpdate = DateTime.Now;
+
+                            if (_twitterWrapper.TweetsReceived > _twitterWrapper.LastSampledTweetCount)
+                            {
+                                _twitterLastUpdate = DateTime.Now;
+                                _twitterWrapper.LastSampledTweetCount = _twitterWrapper.TweetsReceived;
+                            }
                         }
+
+                        Thread.Sleep(5000 - Math.Min((int) (DateTime.Now - checkStart).TotalMilliseconds, 2500));
                     }
 
-                    Thread.Sleep(5000 - Math.Min((int)(DateTime.Now - checkStart).TotalMilliseconds, 2500));
+                    //}
+                }
+                catch (ThreadAbortException)
+                {
+                    // Handle silently
                 }
             });
+                //}, _cancellationTokenSource.Token);
 
             await Task.Factory.StartNew(async () =>
             {
@@ -133,17 +156,12 @@ namespace TwitterNumberBot
                     _running = false;
                     _reset = true;
 
-                    await ResetMain(twitterTask, discordTask);
+                    _twitterWrapper.StopStream();
+                    await _discordWrapper.Logout();
+
+                    //_cancellationTokenSource.Cancel();
                 }
             });
-        }
-
-        private static async Task ResetMain(IDisposable twitterTask, IDisposable discordTask)
-        {
-            twitterTask.Dispose();
-            discordTask.Dispose();
-            _twitterWrapper.StopStream();
-            await _discordWrapper.Logout();
         }
 
         private static void WriteBadTweetLog()
