@@ -24,29 +24,20 @@ namespace TwitterNumberBot
         private static DateTime _sampleStart;
 
         private static AutoResetEvent _closing;
-        //private static CancellationTokenSource _cancellationTokenSource;
 
-        private static bool _running;
         private static bool _reset;
+        private static bool _isRunning;
         private static bool _isSampling;
-        private static bool _badTweetLogging;
 
         private static async Task Main(string[] args)
         {
             _closing = new AutoResetEvent(false);
             Configuration = BuildConfig();
 
-            _running = true;
             _reset = true;
-            _badTweetLogging = bool.Parse(Configuration["BadTweetLogging"]);
-            //_cancellationTokenSource = new CancellationTokenSource();
 
             while (_reset)
             {
-                Thread.Sleep(2500);
-                _reset = false;
-                _running = true;
-
                 await MainLoop();
             }
 
@@ -64,9 +55,13 @@ namespace TwitterNumberBot
                 Thread.Sleep(sleepSpan);
             }
 
+            _reset = false;
+            _isRunning = true;
+
             // Set up client wrappers
             _twitterWrapper = new TwitterWrapper(Configuration["TwitterApiKey"], Configuration["TwitterSecretKey"],
-                    Configuration["TwitterBearerToken"], _badTweetLogging);
+                Configuration["TwitterBearerToken"], Configuration["BadTweetLoggingPath"],
+                bool.Parse(Configuration["BadTweetLogging"]));
 
             _discordWrapper = new DiscordWrapper(Configuration["DiscordBotToken"], Configuration["DiscordGuildId"],
                 Configuration["DiscordRoomId"]);
@@ -76,90 +71,68 @@ namespace TwitterNumberBot
 
             await _twitterWrapper.ConfigureRules();
             _twitterWrapper.ConfigureStream();
-            _sampleStart = DateTime.Now;
 
+            _sampleStart = DateTime.Now;
             _discordLastUpdate = DateTime.Now;
             _twitterLastUpdate = DateTime.Now;
 
             // Set up worker threads
-            var twitterTask = await Task.Factory.StartNew(async () =>
-            {
-                try
-                {
-                    //await using (_cancellationTokenSource.Token.Register(Thread.CurrentThread.Abort))
-                    //{
-                    Console.WriteLine("Starting tweet sampling...");
-                    _isSampling = true;
-                    await _twitterWrapper.SampleStream();
-                    //}
-                }
-                catch (ThreadAbortException)
-                {
-                    _isSampling = false;
-                }
-            });
-            //}, _cancellationTokenSource.Token);
-
-            var discordTask = await Task.Factory.StartNew(async () =>
-            {
-                try
-                {
-                    //await using (_cancellationTokenSource.Token.Register(Thread.CurrentThread.Abort))
-                    //{
-                    await _discordWrapper.Login();
-
-                    while (_running)
-                    {
-                        var checkStart = DateTime.Now;
-
-                        if (_isSampling)
-                        {
-                            await CheckQueueAndWriteToDiscord();
-
-                            if (_badTweetLogging)
-                                WriteBadTweetLog();
-
-                            _discordLastUpdate = DateTime.Now;
-
-                            if (_twitterWrapper.TweetsReceived > _twitterWrapper.LastSampledTweetCount)
-                            {
-                                _twitterLastUpdate = DateTime.Now;
-                                _twitterWrapper.LastSampledTweetCount = _twitterWrapper.TweetsReceived;
-                            }
-                        }
-
-                        Thread.Sleep(5000 - Math.Min((int) (DateTime.Now - checkStart).TotalMilliseconds, 2500));
-                    }
-
-                    //}
-                }
-                catch (ThreadAbortException)
-                {
-                    // Handle silently
-                }
-            });
-                //}, _cancellationTokenSource.Token);
-
+            //Twitter Thread
             await Task.Factory.StartNew(async () =>
             {
-                while (_running)
+                Console.WriteLine("Starting tweet sampling...");
+                _isSampling = true;
+                await _twitterWrapper.SampleStream();
+            });
+
+            //Discord Thread
+            await Task.Factory.StartNew(async () =>
+            {
+                await _discordWrapper.Login();
+
+                while (!_reset && _isRunning && _isSampling)
                 {
-                    Thread.Sleep(2500);
+                    Thread.Sleep(500);
+
+                    if ((DateTime.Now - _discordLastUpdate).TotalSeconds <= 5)
+                        continue;
+
+                    _discordLastUpdate = DateTime.Now;
+
+                    await CheckQueueAndWriteToDiscord();
+
+                    if (_twitterWrapper.BadTweetLogging)
+                        WriteBadTweetLog();
+
+                    if (_twitterWrapper.TweetsReceived <= _twitterWrapper.LastSampledTweetCount) continue;
+
+                    _twitterLastUpdate = DateTime.Now;
+                    _twitterWrapper.LastSampledTweetCount = _twitterWrapper.TweetsReceived;
+                }
+            });
+
+            //Heartbeat Check Thread
+            await Task.Factory.StartNew(async () =>
+            {
+                Thread.Sleep(10000);
+
+                while (!_reset && _isRunning && _isSampling)
+                {
+                    Thread.Sleep(500);
 
                     if (DateTime.Now.Hour >= 10 &&
-                        (new TimeSpan(DateTime.Now.Ticks - _discordLastUpdate.Ticks) <= TimeSpan.FromMinutes(1) 
-                            && new TimeSpan(DateTime.Now.Ticks - _twitterLastUpdate.Ticks) <= TimeSpan.FromMinutes(1)))
+                        (DateTime.Now - _discordLastUpdate).TotalMinutes <= 1 &&
+                        (DateTime.Now - _twitterLastUpdate).TotalMinutes <= 2)
                         continue;
 
                     Console.WriteLine("***** Heartbeat error detected or hit Stop Time, restarting *****");
 
-                    _running = false;
                     _reset = true;
+                    _isRunning = false;
+                    _isSampling = false;
 
                     _twitterWrapper.StopStream();
                     await _discordWrapper.Logout();
-
-                    //_cancellationTokenSource.Cancel();
                 }
             });
         }
@@ -183,13 +156,12 @@ namespace TwitterNumberBot
             }
 
             csv.WriteRecords(tweetList);
-
-            return;
         }
 
         private static async void OnExit(object sender, ConsoleCancelEventArgs e)
         {
-            _running = false;
+            _isRunning = false;
+            _isSampling = false;
             _twitterWrapper.StopStream();
             await _discordWrapper.Logout();
             _closing.Set();

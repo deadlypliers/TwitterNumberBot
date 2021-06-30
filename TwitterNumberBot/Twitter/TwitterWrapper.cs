@@ -19,32 +19,27 @@ namespace TwitterNumberBot.Twitter
         public long TweetsWithValidNumbers { get; private set; }
         public ConcurrentQueue<TweetPackage> TweetQueue { get; }
         public Queue<LogTweet> BadTweetQueue { get; }
+        public bool BadTweetLogging { get; }
         public string TweetLogPath { get; }
+        
 
         private static TwitterClient _tweetClient;
         private static IFilteredStreamV2 _filteredStream;
-        private static bool _badTweetLogging;
-        
-        private const string RuleBase = "\"phone number\" OR (call (number OR phone OR cell)) OR (give \"a call\" -us) OR (\"call me\" at) OR (\"text me\" at) OR (\"contact me\" at) ";
-
-        private const string RuleExclusions =
-            "lang:en -has:media -#NiteFlirt -\"RT\" -whatsapp -india -\"+91\" -delhi -\"real estate\" -crisis -(realtor OR realty) -(cashapp OR \"cash app\") -mortgage -property -\"housing market\" -\"new listing\" -(sale property) -#homesforsale -#realestate -is:retweet";
         
         #region Constructor
-        public TwitterWrapper(string apiKey, string secretKey, string bearerToken, bool badTweetLogging)
+        public TwitterWrapper(string apiKey, string secretKey, string bearerToken, string badTweetLogPath, bool badTweetLogging = false)
         {
             TweetsReceived = 0;
             TweetsWithValidNumbers = 0;
             LastSampledTweetCount = 0;
 
-            _badTweetLogging = badTweetLogging;
-
             TweetQueue = new ConcurrentQueue<TweetPackage>();
             BadTweetQueue = new Queue<LogTweet>();
+            BadTweetLogging = badTweetLogging;
 
             _tweetClient = new TwitterClient(apiKey, secretKey, bearerToken);
 
-            TweetLogPath += $"D:\\TweetLogs\\{DateTime.Now.ToShortDateString().Replace("/", string.Empty).Replace("\\", string.Empty)}.csv";
+            TweetLogPath = $"{badTweetLogPath}{DateTime.Now.ToShortDateString().Replace("/", string.Empty).Replace("\\", string.Empty)}.csv";
         }
 
         #endregion
@@ -67,8 +62,7 @@ namespace TwitterNumberBot.Twitter
                 await _tweetClient.StreamsV2.DeleteRulesFromFilteredStreamAsync(ruleIds);
 
             // Set up rules
-            var response = await _tweetClient.StreamsV2.AddRulesToFilteredStreamAsync(new List<FilteredStreamRuleConfig>{
-                //new FilteredStreamRuleConfig($"{RuleBase} {RuleExclusions}"),
+            await _tweetClient.StreamsV2.AddRulesToFilteredStreamAsync(new List<FilteredStreamRuleConfig>{
                 new FilteredStreamRuleConfig("\"call me\" (at OR on OR please OR number) -us -has:media -whatsapp -mobile -dhani -rs -(sir OR madam) -india -delhi -\"this article\" -\"real estate\" -\"buying or selling\" -(work home) -#NiteFlirt -emergency -suicide -crisis -scholarship -(realtor OR realty) -(cashapp OR \"cash app\") -DOJ -\"housing market\" -\"new listing\" -(home (escrow OR showing OR market OR selling OR client OR buying OR seller OR owning OR listing)) -(sale property) -#homesforsale -#realestate -is:retweet -gofundme -(break promise) -paper", "CallMe"),
                 new FilteredStreamRuleConfig("\"phone number\" (my OR me) -hacker -has:media -whatsapp -\"what's app\" -mobile -dhani -rs -(sir OR madam) -india -delhi -\"this article\" -\"real estate\" -\"buying or selling\" -(work home) -#NiteFlirt -emergency -suicide -crisis -scholarship -(realtor OR realty) -(cashapp OR \"cash app\") -DOJ -\"housing market\" -\"new listing\" -(home (escrow OR showing OR market OR selling OR client OR buying OR seller OR owning OR listing)) -(sale property) -#homesforsale -#realestate -is:retweet -gofundme -(break promise) -paper", "MyPhoneNumber"),
                 new FilteredStreamRuleConfig("\"give me\" \"a call\" -has:media -whatsapp -\"what's app\" -mobile -dhani -rs -(sir OR madam) -india -delhi -\"this article\" -\"real estate\" -\"buying or selling\" -(work home) -#NiteFlirt -emergency -suicide -crisis -scholarship -(realtor OR realty) -(cashapp OR \"cash app\") -DOJ -\"housing market\" -\"new listing\" -(home (escrow OR showing OR market OR selling OR client OR buying OR seller OR owning OR listing)) -(sale property) -#homesforsale -#realestate -is:retweet -gofundme -(break promise) -lyrics -paper", "GiveACall")
@@ -104,7 +98,7 @@ namespace TwitterNumberBot.Twitter
 
             var phoneNumbers = Regex.Match(e.Tweet.Text, @"((^(\+?\1)?)|\b[1]?)\D?\(?([2-9]{1}[0-9]{2})\)?\D?([1-9]{1}[0-9]{2})\D?([0-9]{4})(?![-●\d])");
 
-            if (string.IsNullOrWhiteSpace(phoneNumbers.Value) && _badTweetLogging)
+            if (string.IsNullOrWhiteSpace(phoneNumbers.Value) && BadTweetLogging)
             {
                 BadTweetQueue.Enqueue(new LogTweet()
                 {
