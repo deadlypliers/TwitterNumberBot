@@ -98,14 +98,16 @@ namespace TwitterNumberBot.Twitter
 
             var phoneNumbers = Regex.Match(e.Tweet.Text, @"((^(\+?\1)?)|\b[1]?)\D?\(?([2-9]{1}[0-9]{2})\)?\D?([1-9]{1}[0-9]{2})\D?([0-9]{4})(?![-●\d])");
 
-            if (string.IsNullOrWhiteSpace(phoneNumbers.Value) && BadTweetLogging)
+            if (string.IsNullOrWhiteSpace(phoneNumbers.Value))
             {
-                BadTweetQueue.Enqueue(new LogTweet()
-                {
-                    Timestamp = e.Tweet.CreatedAt.DateTime,
-                    Username = e.Includes.Users.First(u => u.Id == e.Tweet.AuthorId).Username,
-                    TweetText = e.Tweet.Text
-                });
+                if (BadTweetLogging)
+                    BadTweetQueue.Enqueue(new LogTweet()
+                    {
+                        Timestamp = e.Tweet.CreatedAt.DateTime,
+                        Username = e.Includes.Users.First(u => u.Id == e.Tweet.AuthorId).Username,
+                        TweetText = e.Tweet.Text
+                    });
+
                 return;
             }
 
