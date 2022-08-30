@@ -70,9 +70,11 @@ namespace TwitterNumberBot.Utility
             var matchedAreaCode = false;
             if (includeTF)
                 matchedAreaCode = TOLL_FREE_AREA_CODES.Any(aC => aC.Equals(areaCode));
-            else if (includeCA && !matchedAreaCode)
+
+            if (includeCA && !matchedAreaCode)
                 matchedAreaCode = CANADIAN_AREA_CODES.Any(aC => aC.Equals(areaCode));
-            else if (includeCA && !matchedAreaCode)
+
+            if (includeUS && !matchedAreaCode)
                 matchedAreaCode = US_AREA_CODES.Any(aC => aC.Equals(areaCode));
 
             return matchedAreaCode ? phoneNumber : null;
