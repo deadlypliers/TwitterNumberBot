@@ -52,7 +52,7 @@ namespace TwitterNumberBot
             {
                 var sleepSpan = DateTime.Parse($"{DateTime.Today.ToShortDateString()} 10:00:00") - DateTime.Now;
                 Console.WriteLine($"Sleeping for {sleepSpan:g}...");
-                Thread.Sleep(sleepSpan);
+                await Task.Delay(sleepSpan);
             }
 
             _reset = false;
@@ -69,7 +69,7 @@ namespace TwitterNumberBot
             // Configure twitter client
             Console.WriteLine("Configuring tweet sampling rules...");
 
-            await _twitterWrapper.ConfigureRules();
+            await _twitterWrapper.ConfigureRules(Configuration.GetSection("TweetFilters").Get<List<TweetFilter>>());
             _twitterWrapper.ConfigureStream();
 
             _sampleStart = DateTime.Now;
@@ -92,7 +92,7 @@ namespace TwitterNumberBot
 
                 while (!_reset && _isRunning && _isSampling)
                 {
-                    Thread.Sleep(500);
+                    await Task.Delay(500);
 
                     if ((DateTime.Now - _discordLastUpdate).TotalSeconds <= 5)
                         continue;
@@ -114,11 +114,11 @@ namespace TwitterNumberBot
             //Heartbeat Check Thread
             await Task.Factory.StartNew(async () =>
             {
-                Thread.Sleep(10000);
+                await Task.Delay(10000);
 
                 while (!_reset && _isRunning && _isSampling)
                 {
-                    Thread.Sleep(500);
+                    await Task.Delay(500);
 
                     if (DateTime.Now.Hour >= 10 &&
                         (DateTime.Now - _discordLastUpdate).TotalMinutes <= 1 &&
@@ -147,7 +147,7 @@ namespace TwitterNumberBot
             }
 
             using var writer = new StreamWriter(fileInfo.FullName, true);
-            using var csv = new CsvWriter(writer, new CsvConfiguration(CultureInfo.CurrentCulture) {Delimiter = ",", HasHeaderRecord = false, Escape = '\\'});
+            using var csv = new CsvWriter(writer, new CsvConfiguration(CultureInfo.CurrentCulture) { Delimiter = ",", HasHeaderRecord = false, Escape = '\\' });
             var tweetList = new List<LogTweet>();
 
             while (_twitterWrapper.BadTweetQueue.Count > 0)
