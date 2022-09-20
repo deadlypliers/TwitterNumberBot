@@ -38,7 +38,11 @@ namespace TwitterNumberBot
 
             while (_reset)
             {
-                await MainLoop();
+                await MainLoop().ConfigureAwait(false);
+                while (_isRunning)  //introducing this loop to prevent .NET 6.0 from falling through the await
+                {
+                    await Task.Delay(1000);
+                }
             }
 
             Console.CancelKeyPress += OnExit;
@@ -47,14 +51,6 @@ namespace TwitterNumberBot
 
         private static async Task MainLoop()
         {
-            // Stop sampling between midnight and 10 AM to avoid international spam
-            if (DateTime.Now.Hour < 10)
-            {
-                var sleepSpan = DateTime.Parse($"{DateTime.Today.ToShortDateString()} 10:00:00") - DateTime.Now;
-                Console.WriteLine($"Sleeping for {sleepSpan:g}...");
-                await Task.Delay(sleepSpan);
-            }
-
             _reset = false;
             _isRunning = true;
 
@@ -120,8 +116,7 @@ namespace TwitterNumberBot
                 {
                     await Task.Delay(500);
 
-                    if (DateTime.Now.Hour >= 10 &&
-                        (DateTime.Now - _discordLastUpdate).TotalMinutes <= 1 &&
+                    if ((DateTime.Now - _discordLastUpdate).TotalMinutes <= 1 &&
                         (DateTime.Now - _twitterLastUpdate).TotalMinutes <= 2)
                         continue;
 

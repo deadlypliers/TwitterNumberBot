@@ -2,7 +2,6 @@
 using Discord.WebSocket;
 using System;
 using System.Collections.Generic;
-using System.Threading;
 using System.Threading.Tasks;
 using TwitterNumberBot.Twitter;
 
@@ -57,7 +56,7 @@ namespace TwitterNumberBot.Discord
             while (!_connected && retries < maxRetries)
             {
                 retries++;
-                Thread.Sleep(2000);
+                await Task.Delay(2000);
             }
 
             var guild = _discordClient.GetGuild(_guildId);
